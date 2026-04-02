@@ -2,3 +2,9 @@
 .Rhistory
 .RData
 .Ruserdata
+
+data/*.rds
+data/*.csv
+data/*.geojson
+data-raw/**/*.csv
+data-raw/**/*.geojson
