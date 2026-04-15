@@ -42,6 +42,73 @@ function(input, output, session) {
     as.Date(input$snapshot_month)
   })
 
+  story_room_type_data <- reactive({
+    snapshot_room_type_summary %>%
+      filter(snapshot_month == selected_month()) %>%
+      mutate(room_type_group = if_else(room_type %in% main_room_types, room_type, "Other")) %>%
+      group_by(city, snapshot_month, room_type_group) %>%
+      summarise(share = sum(share), .groups = "drop") %>%
+      mutate(room_type_group = forcats::fct_relevel(room_type_group, "Entire home/apt", "Private room", "Other"))
+  })
+
+  output$story_room_type_plot <- renderPlot({
+    ggplot(story_room_type_data(), aes(x = room_type_group, y = share, fill = city)) +
+      geom_col(position = "dodge") +
+      geom_text(
+        aes(label = percent(share, accuracy = 0.1)),
+        position = position_dodge(width = 0.9),
+        vjust = -0.35,
+        size = 3.8
+      ) +
+      scale_y_continuous(labels = label_percent(), limits = c(0, 0.85)) +
+      scale_fill_manual(values = c("NYC" = "#4E79A7", "LA" = "#E15759")) +
+      labs(
+        title = paste("Room Type Composition in", snapshot_label(selected_month())),
+        subtitle = "The main difference starts with what kind of listings dominate each city.",
+        x = NULL,
+        y = "Share of listings",
+        fill = "City"
+      )
+  })
+
+  output$story_availability_plot <- renderPlot({
+    ggplot(city_month_summary, aes(x = month_start, y = mean_availability_rate, color = city)) +
+      geom_line(linewidth = 1.1) +
+      geom_point(size = 2.2) +
+      scale_color_manual(values = c("NYC" = "#4E79A7", "LA" = "#E15759")) +
+      scale_y_continuous(labels = label_percent(accuracy = 1)) +
+      labs(
+        title = "Availability Over Time",
+        subtitle = "Los Angeles listings tend to stay available more consistently than New York listings.",
+        x = NULL,
+        y = "Mean availability rate",
+        color = "City"
+      )
+  })
+
+  output$story_host_plot <- renderPlot({
+    plot_data <- snapshot_host_summary %>%
+      filter(snapshot_month == selected_month())
+
+    ggplot(plot_data, aes(x = host_type, y = share, fill = city)) +
+      geom_col(position = "dodge") +
+      geom_text(
+        aes(label = percent(share, accuracy = 0.1)),
+        position = position_dodge(width = 0.9),
+        vjust = -0.35,
+        size = 3.8
+      ) +
+      scale_y_continuous(labels = label_percent(), limits = c(0, 0.8)) +
+      scale_fill_manual(values = c("NYC" = "#4E79A7", "LA" = "#E15759")) +
+      labs(
+        title = paste("Host Structure in", snapshot_label(selected_month())),
+        subtitle = "Los Angeles is more dominated by multi-listing hosts.",
+        x = NULL,
+        y = "Share of listings",
+        fill = "City"
+      )
+  })
+
   output$market_map_plot <- renderPlot({
     metric_labels <- c(
       listing_count = "Listing count",
@@ -52,12 +119,43 @@ function(input, output, session) {
     plot_data <- map_summary %>%
       filter(city == input$overview_city, snapshot_month == selected_month())
 
+    map_palette <- c("#d6e6f5", "#a8cce6", "#78b1d6", "#4d8fc0", "#2867a8", "#0b3d78")
+
+    build_map_scale <- function(values, labels, transform = NULL) {
+      values <- values[is.finite(values)]
+      breaks <- unique(as.numeric(quantile(
+        values,
+        probs = seq(0, 1, length.out = 7),
+        na.rm = TRUE,
+        names = FALSE
+      )))
+
+      if (length(breaks) < 3) {
+        breaks <- pretty(values, n = 6)
+      }
+
+      scale_args <- list(
+        colours = map_palette,
+        breaks = breaks,
+        labels = labels,
+        na.value = "grey95",
+        show.limits = TRUE
+      )
+
+      if (!is.null(transform)) {
+        scale_args$trans <- transform
+      }
+
+      do.call(scale_fill_stepsn, scale_args)
+    }
+
+    # Quantile-style bins keep low-end neighborhoods from collapsing into the same pale fill.
     fill_scale <- if (input$overview_metric == "multi_share") {
-      scale_fill_viridis_c(labels = label_percent(accuracy = 1), na.value = "grey90")
+      build_map_scale(plot_data$multi_share, label_percent(accuracy = 1))
     } else if (input$overview_metric == "listing_count") {
-      scale_fill_viridis_c(labels = label_comma(), na.value = "grey90")
+      build_map_scale(plot_data$listing_count, label_comma(), transform = "log10")
     } else {
-      scale_fill_viridis_c(labels = label_number(), na.value = "grey90")
+      build_map_scale(plot_data$median_availability, label_number())
     }
 
     ggplot(plot_data) +
@@ -112,39 +210,6 @@ function(input, output, session) {
     } else {
       HTML("<b>Takeaway:</b> LA listings are especially concentrated in places like Hollywood, Venice, Santa Monica, and West Hollywood.")
     }
-  })
-
-  output$room_type_plot <- renderPlot({
-    validate(need(length(input$room_city) > 0, "Select at least one city."))
-
-    plot_data <- snapshot_room_type_summary %>%
-      filter(city %in% input$room_city, snapshot_month == selected_month()) %>%
-      mutate(room_type_group = if_else(room_type %in% main_room_types, room_type, "Other")) %>%
-      group_by(city, snapshot_month, room_type_group) %>%
-      summarise(share = sum(share), .groups = "drop") %>%
-      mutate(room_type_group = forcats::fct_relevel(room_type_group, "Entire home/apt", "Private room", "Other"))
-
-    ggplot(plot_data, aes(x = room_type_group, y = share, fill = city)) +
-      geom_col(position = "dodge") +
-      geom_text(
-        aes(label = percent(share, accuracy = 0.1)),
-        position = position_dodge(width = 0.9),
-        vjust = -0.35,
-        size = 3.8
-      ) +
-      scale_y_continuous(labels = label_percent(), limits = c(0, 0.85)) +
-      scale_fill_manual(values = c("NYC" = "#4E79A7", "LA" = "#E15759")) +
-      labs(
-        title = paste("Room Type Composition in", snapshot_label(selected_month())),
-        subtitle = "The main comparison is between entire homes and private rooms; hotel and shared rooms are grouped into Other.",
-        x = NULL,
-        y = "Share of listings",
-        fill = "City"
-      )
-  })
-
-  output$room_type_note <- renderUI({
-    HTML("<b>Takeaway:</b> The big difference is still the same: LA leans much more toward whole-home listings, while NYC has a much larger private-room share.")
   })
 
   output$price_city_plot <- renderPlot({
@@ -212,25 +277,6 @@ function(input, output, session) {
     HTML("<b>Note:</b> Pricing is shown only for the shared months with usable listing prices in both cities. The room-type price chart focuses on entire homes and private rooms because hotel and shared rooms are too small and too extreme to be useful in the main comparison.")
   })
 
-  output$availability_plot <- renderPlot({
-    ggplot(city_month_summary, aes(x = month_start, y = mean_availability_rate, color = city)) +
-      geom_line(linewidth = 1.1) +
-      geom_point(size = 2.2) +
-      scale_color_manual(values = c("NYC" = "#4E79A7", "LA" = "#E15759")) +
-      scale_y_continuous(labels = label_percent(accuracy = 1)) +
-      labs(
-        title = "Calendar Availability Trends",
-        subtitle = "Mean availability rate",
-        x = NULL,
-        y = NULL,
-        color = "City"
-      )
-  })
-
-  output$availability_note <- renderUI({
-    HTML("<b>Note:</b> This shows calendar availability, not confirmed bookings. Lower availability could mean booked dates, blocked dates, or both.")
-  })
-
   output$host_plot <- renderPlot({
     plot_data <- snapshot_host_summary %>%
       filter(city == input$host_city, snapshot_month == selected_month())
@@ -284,3 +330,8 @@ function(input, output, session) {
     HTML(paste0("<b>Takeaway:</b> ", city_text))
   })
 }
+
+
+
+
+
