@@ -5,9 +5,22 @@ fluidPage(
 
   wellPanel(
     h4("What this version shows"),
-    p(
-      "This interim version focuses on market density, room types, availability, and host activity.",
-      "Pricing is still missing from the current Inside Airbnb download, so price comparisons are not included yet."
+    fluidRow(
+      column(
+        8,
+        p(
+          "This version focuses on market density, room types, host activity, and shared-month pricing.",
+          "Pricing is only shown for the common priced snapshots we have for both cities."
+        )
+      ),
+      column(
+        4,
+        selectInput(
+          "snapshot_month",
+          "Shared priced snapshot",
+          choices = NULL
+        )
+      )
     )
   ),
 
@@ -71,25 +84,44 @@ fluidPage(
     ),
 
     tabPanel(
-      "Availability Trends",
+      "Pricing Snapshots",
       sidebarLayout(
         sidebarPanel(
-          radioButtons(
-            "availability_metric",
-            "Metric",
-            choices = c(
-              "Mean availability rate" = "mean_availability_rate",
-              "Active listing count" = "active_listing_count"
-            ),
-            selected = "mean_availability_rate"
+          selectInput(
+            "price_city",
+            "Neighborhood price view",
+            choices = c("NYC", "LA"),
+            selected = "NYC"
+          ),
+          sliderInput(
+            "price_top_n",
+            "Neighborhoods shown",
+            min = 5,
+            max = 15,
+            value = 10
           )
         ),
         mainPanel(
-          plotOutput("availability_plot", height = "450px"),
+          fluidRow(
+            column(6, plotOutput("price_city_plot", height = "360px")),
+            column(6, plotOutput("price_room_plot", height = "360px"))
+          ),
+          fluidRow(
+            column(12, plotOutput("price_neighbourhood_plot", height = "430px"))
+          ),
           br(),
-          htmlOutput("availability_note")
+          htmlOutput("price_note")
         )
       )
+    ),
+
+    tabPanel(
+      "Availability Trends",
+      fluidRow(
+        column(12, plotOutput("availability_plot", height = "450px"))
+      ),
+      br(),
+      htmlOutput("availability_note")
     ),
 
     tabPanel(

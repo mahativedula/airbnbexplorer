@@ -5,63 +5,43 @@ library(sf)
 
 theme_set(theme_classic(base_size = 12))
 
-read_listings_raw <- function(city) {
-  read_csv(
-    file.path("data-raw", city, paste0(city, " listings.csv")),
-    show_col_types = FALSE
-  ) %>%
-    mutate(
-      city = city,
-      multi_host = calculated_host_listings_count > 1
-    )
-}
-
-listings_raw <- bind_rows(
-  read_listings_raw("NYC"),
-  read_listings_raw("LA")
-)
-
+shared_months <- readRDS(file.path("data", "pricing_shared_months.rds"))
 city_month_summary <- readRDS(file.path("data", "city_month_summary.rds"))
 neighbourhood_shapes <- readRDS(file.path("data", "neighbourhoods_clean.rds"))
+snapshot_overview_summary <- readRDS(file.path("data", "snapshot_overview_summary.rds"))
+snapshot_room_type_summary <- readRDS(file.path("data", "snapshot_room_type_summary.rds"))
+snapshot_host_summary <- readRDS(file.path("data", "snapshot_host_summary.rds"))
+pricing_city_summary <- readRDS(file.path("data", "pricing_city_summary.rds"))
+pricing_room_type_summary <- readRDS(file.path("data", "pricing_room_type_summary.rds"))
+pricing_neighbourhood_summary <- readRDS(file.path("data", "pricing_neighbourhood_summary.rds"))
 
-overview_summary <- listings_raw %>%
-  filter(!is.na(neighbourhood), neighbourhood != "") %>%
-  group_by(city, neighbourhood) %>%
-  summarise(
-    listing_count = n(),
-    multi_share = mean(multi_host, na.rm = TRUE),
-    median_availability = median(availability_365, na.rm = TRUE),
-    .groups = "drop"
-  )
+snapshot_choices <- setNames(as.character(shared_months), format(shared_months, "%b %Y"))
 
 map_summary <- neighbourhood_shapes %>%
-  left_join(overview_summary, by = c("city", "neighbourhood"))
+  left_join(
+    snapshot_overview_summary,
+    by = c("city", "neighbourhood_group", "neighbourhood")
+  )
 
-room_type_summary <- listings_raw %>%
-  filter(!is.na(room_type), room_type != "") %>%
-  count(city, room_type, name = "listing_count") %>%
-  group_by(city) %>%
-  mutate(share = listing_count / sum(listing_count)) %>%
-  ungroup()
+snapshot_label <- function(x) {
+  format(as.Date(x), "%b %Y")
+}
 
-host_summary_plot <- listings_raw %>%
-  mutate(
-    host_type = case_when(
-      multi_host ~ "Multi-listing host",
-      TRUE ~ "Single-listing host"
-    )
-  ) %>%
-  group_by(city, host_type) %>%
-  summarise(
-    listing_count = n(),
-    median_availability = median(availability_365, na.rm = TRUE),
-    .groups = "drop"
-  ) %>%
-  group_by(city) %>%
-  mutate(share = listing_count / sum(listing_count)) %>%
-  ungroup()
+main_room_types <- c("Entire home/apt", "Private room")
 
 function(input, output, session) {
+  updateSelectInput(
+    session,
+    "snapshot_month",
+    choices = snapshot_choices,
+    selected = snapshot_choices[[1]]
+  )
+
+  selected_month <- reactive({
+    req(input$snapshot_month)
+    as.Date(input$snapshot_month)
+  })
+
   output$market_map_plot <- renderPlot({
     metric_labels <- c(
       listing_count = "Listing count",
@@ -70,7 +50,7 @@ function(input, output, session) {
     )
 
     plot_data <- map_summary %>%
-      filter(city == input$overview_city)
+      filter(city == input$overview_city, snapshot_month == selected_month())
 
     fill_scale <- if (input$overview_metric == "multi_share") {
       scale_fill_viridis_c(labels = label_percent(accuracy = 1), na.value = "grey90")
@@ -85,7 +65,7 @@ function(input, output, session) {
       fill_scale +
       labs(
         title = paste(input$overview_city, "Neighborhood Map"),
-        subtitle = metric_labels[[input$overview_metric]],
+        subtitle = paste(metric_labels[[input$overview_metric]], "for", snapshot_label(selected_month())),
         fill = NULL
       ) +
       theme(
@@ -96,8 +76,8 @@ function(input, output, session) {
   })
 
   output$overview_plot <- renderPlot({
-    plot_data <- overview_summary %>%
-      filter(city == input$overview_city) %>%
+    plot_data <- snapshot_overview_summary %>%
+      filter(city == input$overview_city, snapshot_month == selected_month()) %>%
       arrange(desc(.data[[input$overview_metric]])) %>%
       slice_head(n = input$top_n) %>%
       mutate(neighbourhood = forcats::fct_reorder(neighbourhood, .data[[input$overview_metric]]))
@@ -120,7 +100,7 @@ function(input, output, session) {
       scale_y_continuous(labels = value_labels[[input$overview_metric]]) +
       labs(
         title = paste("Top", input$top_n, "Neighborhoods"),
-        subtitle = metric_labels[[input$overview_metric]],
+        subtitle = paste(metric_labels[[input$overview_metric]], "for", snapshot_label(selected_month())),
         x = NULL,
         y = NULL
       )
@@ -137,11 +117,14 @@ function(input, output, session) {
   output$room_type_plot <- renderPlot({
     validate(need(length(input$room_city) > 0, "Select at least one city."))
 
-    plot_data <- room_type_summary %>%
-      filter(city %in% input$room_city) %>%
-      mutate(room_type = forcats::fct_relevel(room_type, "Entire home/apt", "Private room", "Hotel room", "Shared room"))
+    plot_data <- snapshot_room_type_summary %>%
+      filter(city %in% input$room_city, snapshot_month == selected_month()) %>%
+      mutate(room_type_group = if_else(room_type %in% main_room_types, room_type, "Other")) %>%
+      group_by(city, snapshot_month, room_type_group) %>%
+      summarise(share = sum(share), .groups = "drop") %>%
+      mutate(room_type_group = forcats::fct_relevel(room_type_group, "Entire home/apt", "Private room", "Other"))
 
-    ggplot(plot_data, aes(x = room_type, y = share, fill = city)) +
+    ggplot(plot_data, aes(x = room_type_group, y = share, fill = city)) +
       geom_col(position = "dodge") +
       geom_text(
         aes(label = percent(share, accuracy = 0.1)),
@@ -152,8 +135,8 @@ function(input, output, session) {
       scale_y_continuous(labels = label_percent(), limits = c(0, 0.85)) +
       scale_fill_manual(values = c("NYC" = "#4E79A7", "LA" = "#E15759")) +
       labs(
-        title = "Room Type Composition by City",
-        subtitle = "LA has a larger whole-home market, while NYC has a much bigger private-room share.",
+        title = paste("Room Type Composition in", snapshot_label(selected_month())),
+        subtitle = "The main comparison is between entire homes and private rooms; hotel and shared rooms are grouped into Other.",
         x = NULL,
         y = "Share of listings",
         fill = "City"
@@ -161,29 +144,83 @@ function(input, output, session) {
   })
 
   output$room_type_note <- renderUI({
-    HTML("<b>Takeaway:</b> This is one of the clearest differences between the two cities and likely one of the strongest parts of the final story.")
+    HTML("<b>Takeaway:</b> The big difference is still the same: LA leans much more toward whole-home listings, while NYC has a much larger private-room share.")
+  })
+
+  output$price_city_plot <- renderPlot({
+    plot_data <- pricing_city_summary %>%
+      filter(snapshot_month == selected_month())
+
+    ggplot(plot_data, aes(x = city, y = median_price, fill = city)) +
+      geom_col(width = 0.65) +
+      geom_text(aes(label = dollar(median_price)), vjust = -0.35, size = 4) +
+      scale_fill_manual(values = c("NYC" = "#4E79A7", "LA" = "#E15759")) +
+      scale_y_continuous(labels = dollar_format()) +
+      labs(
+        title = paste("Median Price by City in", snapshot_label(selected_month())),
+        subtitle = "Based on listings with usable price values",
+        x = NULL,
+        y = NULL,
+        fill = NULL
+      )
+  })
+
+  output$price_room_plot <- renderPlot({
+    plot_data <- pricing_room_type_summary %>%
+      filter(snapshot_month == selected_month(), room_type %in% main_room_types) %>%
+      mutate(room_type = forcats::fct_relevel(room_type, "Entire home/apt", "Private room"))
+
+    ggplot(plot_data, aes(x = room_type, y = median_price, fill = city)) +
+      geom_col(position = "dodge") +
+      geom_text(
+        aes(label = dollar(median_price)),
+        position = position_dodge(width = 0.9),
+        vjust = -0.35,
+        size = 3.6
+      ) +
+      scale_fill_manual(values = c("NYC" = "#4E79A7", "LA" = "#E15759")) +
+      scale_y_continuous(labels = dollar_format()) +
+      labs(
+        title = "Median Price by Main Room Type",
+        subtitle = paste(snapshot_label(selected_month()), "(hotel and shared rooms excluded)"),
+        x = NULL,
+        y = NULL,
+        fill = "City"
+      )
+  })
+
+  output$price_neighbourhood_plot <- renderPlot({
+    plot_data <- pricing_neighbourhood_summary %>%
+      filter(city == input$price_city, snapshot_month == selected_month()) %>%
+      arrange(desc(median_price)) %>%
+      slice_head(n = input$price_top_n) %>%
+      mutate(neighbourhood = forcats::fct_reorder(neighbourhood, median_price))
+
+    ggplot(plot_data, aes(x = neighbourhood, y = median_price)) +
+      geom_col(fill = "#B07AA1") +
+      coord_flip() +
+      scale_y_continuous(labels = dollar_format()) +
+      labs(
+        title = paste("Top", input$price_top_n, "Neighborhoods by Median Price in", input$price_city),
+        subtitle = snapshot_label(selected_month()),
+        x = NULL,
+        y = NULL
+      )
+  })
+
+  output$price_note <- renderUI({
+    HTML("<b>Note:</b> Pricing is shown only for the shared months with usable listing prices in both cities. The room-type price chart focuses on entire homes and private rooms because hotel and shared rooms are too small and too extreme to be useful in the main comparison.")
   })
 
   output$availability_plot <- renderPlot({
-    metric_label <- case_when(
-      input$availability_metric == "mean_availability_rate" ~ "Mean availability rate",
-      TRUE ~ "Active listing count"
-    )
-
-    y_scale <- if (input$availability_metric == "mean_availability_rate") {
-      scale_y_continuous(labels = label_percent(accuracy = 1))
-    } else {
-      scale_y_continuous(labels = label_comma())
-    }
-
-    ggplot(city_month_summary, aes(x = month_start, y = .data[[input$availability_metric]], color = city)) +
+    ggplot(city_month_summary, aes(x = month_start, y = mean_availability_rate, color = city)) +
       geom_line(linewidth = 1.1) +
       geom_point(size = 2.2) +
       scale_color_manual(values = c("NYC" = "#4E79A7", "LA" = "#E15759")) +
-      y_scale +
+      scale_y_continuous(labels = label_percent(accuracy = 1)) +
       labs(
         title = "Calendar Availability Trends",
-        subtitle = metric_label,
+        subtitle = "Mean availability rate",
         x = NULL,
         y = NULL,
         color = "City"
@@ -195,8 +232,8 @@ function(input, output, session) {
   })
 
   output$host_plot <- renderPlot({
-    plot_data <- host_summary_plot %>%
-      filter(city == input$host_city)
+    plot_data <- snapshot_host_summary %>%
+      filter(city == input$host_city, snapshot_month == selected_month())
 
     ggplot(plot_data, aes(x = host_type, y = share, fill = host_type)) +
       geom_col(width = 0.65) +
@@ -209,7 +246,7 @@ function(input, output, session) {
       scale_fill_manual(values = c("Single-listing host" = "#59A14F", "Multi-listing host" = "#F28E2B")) +
       labs(
         title = paste("Host Structure in", input$host_city),
-        subtitle = "Share of listings managed by single-listing vs multi-listing hosts",
+        subtitle = snapshot_label(selected_month()),
         x = NULL,
         y = "Share of listings",
         fill = NULL
@@ -217,8 +254,8 @@ function(input, output, session) {
   })
 
   output$host_availability_plot <- renderPlot({
-    plot_data <- host_summary_plot %>%
-      filter(city == input$host_city)
+    plot_data <- snapshot_host_summary %>%
+      filter(city == input$host_city, snapshot_month == selected_month())
 
     ggplot(plot_data, aes(x = host_type, y = median_availability, fill = host_type)) +
       geom_col(width = 0.65) +
@@ -230,7 +267,7 @@ function(input, output, session) {
       scale_fill_manual(values = c("Single-listing host" = "#59A14F", "Multi-listing host" = "#F28E2B")) +
       labs(
         title = paste("Availability by Host Type in", input$host_city),
-        subtitle = "Median annual availability",
+        subtitle = snapshot_label(selected_month()),
         x = NULL,
         y = "Median availability_365",
         fill = NULL
