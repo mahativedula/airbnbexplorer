@@ -5,22 +5,9 @@ fluidPage(
 
   wellPanel(
     h4("What this version shows"),
-    fluidRow(
-      column(
-        8,
-        p(
-          "This version combines a guided data story with interactive views for neighborhood and pricing exploration.",
-          "Pricing is only shown for the shared priced snapshots we have for both cities."
-        )
-      ),
-      column(
-        4,
-        selectInput(
-          "snapshot_month",
-          "Shared priced snapshot",
-          choices = NULL
-        )
-      )
+    p(
+      "This version combines a guided data story with focused interactive views for neighborhood patterns, pricing, and host activity.",
+      "Pricing is only shown for the shared priced snapshots available for both cities."
     )
   ),
 
@@ -76,6 +63,11 @@ fluidPage(
             choices = c("NYC", "LA"),
             selected = "NYC"
           ),
+          selectInput(
+            "overview_month",
+            "Snapshot month",
+            choices = NULL
+          ),
           radioButtons(
             "overview_metric",
             "Neighborhood metric",
@@ -85,13 +77,6 @@ fluidPage(
               "Median days available per year" = "median_availability"
             ),
             selected = "listing_count"
-          ),
-          sliderInput(
-            "top_n",
-            "Neighborhoods shown in ranking",
-            min = 5,
-            max = 15,
-            value = 10
           )
         ),
         mainPanel(
@@ -110,17 +95,15 @@ fluidPage(
       sidebarLayout(
         sidebarPanel(
           selectInput(
+            "price_month",
+            "Snapshot month",
+            choices = NULL
+          ),
+          selectInput(
             "price_city",
             "Neighborhood price view",
             choices = c("NYC", "LA"),
             selected = "NYC"
-          ),
-          sliderInput(
-            "price_top_n",
-            "Neighborhoods shown",
-            min = 5,
-            max = 15,
-            value = 10
           )
         ),
         mainPanel(
@@ -146,6 +129,11 @@ fluidPage(
             "City",
             choices = c("NYC", "LA"),
             selected = "NYC"
+          ),
+          selectInput(
+            "host_month",
+            "Snapshot month",
+            choices = NULL
           )
         ),
         mainPanel(
@@ -160,5 +148,3 @@ fluidPage(
     )
   )
 )
-
-

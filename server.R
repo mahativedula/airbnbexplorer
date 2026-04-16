@@ -15,7 +15,16 @@ pricing_city_summary <- readRDS(file.path("data", "pricing_city_summary.rds"))
 pricing_room_type_summary <- readRDS(file.path("data", "pricing_room_type_summary.rds"))
 pricing_neighbourhood_summary <- readRDS(file.path("data", "pricing_neighbourhood_summary.rds"))
 
-snapshot_choices <- setNames(as.character(shared_months), format(shared_months, "%b %Y"))
+listing_months <- snapshot_overview_summary %>%
+  distinct(snapshot_month) %>%
+  pull(snapshot_month) %>%
+  sort()
+
+pricing_months <- sort(shared_months)
+
+listing_month_choices <- setNames(as.character(listing_months), format(listing_months, "%b %Y"))
+pricing_month_choices <- setNames(as.character(pricing_months), format(pricing_months, "%b %Y"))
+story_snapshot_month <- max(pricing_months)
 
 map_summary <- neighbourhood_shapes %>%
   left_join(
@@ -32,19 +41,43 @@ main_room_types <- c("Entire home/apt", "Private room")
 function(input, output, session) {
   updateSelectInput(
     session,
-    "snapshot_month",
-    choices = snapshot_choices,
-    selected = snapshot_choices[[1]]
+    "overview_month",
+    choices = listing_month_choices,
+    selected = tail(listing_month_choices, 1)
   )
 
-  selected_month <- reactive({
-    req(input$snapshot_month)
-    as.Date(input$snapshot_month)
+  updateSelectInput(
+    session,
+    "price_month",
+    choices = pricing_month_choices,
+    selected = tail(pricing_month_choices, 1)
+  )
+
+  updateSelectInput(
+    session,
+    "host_month",
+    choices = listing_month_choices,
+    selected = tail(listing_month_choices, 1)
+  )
+
+  selected_overview_month <- reactive({
+    req(input$overview_month)
+    as.Date(input$overview_month)
+  })
+
+  selected_price_month <- reactive({
+    req(input$price_month)
+    as.Date(input$price_month)
+  })
+
+  selected_host_month <- reactive({
+    req(input$host_month)
+    as.Date(input$host_month)
   })
 
   story_room_type_data <- reactive({
     snapshot_room_type_summary %>%
-      filter(snapshot_month == selected_month()) %>%
+      filter(snapshot_month == story_snapshot_month) %>%
       mutate(room_type_group = if_else(room_type %in% main_room_types, room_type, "Other")) %>%
       group_by(city, snapshot_month, room_type_group) %>%
       summarise(share = sum(share), .groups = "drop") %>%
@@ -63,7 +96,7 @@ function(input, output, session) {
       scale_y_continuous(labels = label_percent(), limits = c(0, 0.85)) +
       scale_fill_manual(values = c("NYC" = "#4E79A7", "LA" = "#E15759")) +
       labs(
-        title = paste("Room Type Composition in", snapshot_label(selected_month())),
+        title = paste("Room Type Composition in", snapshot_label(story_snapshot_month)),
         subtitle = "The main difference starts with what kind of listings dominate each city.",
         x = NULL,
         y = "Share of listings",
@@ -89,7 +122,7 @@ function(input, output, session) {
 
   output$story_host_plot <- renderPlot({
     plot_data <- snapshot_host_summary %>%
-      filter(snapshot_month == selected_month())
+      filter(snapshot_month == story_snapshot_month)
 
     ggplot(plot_data, aes(x = host_type, y = share, fill = city)) +
       geom_col(position = "dodge") +
@@ -102,7 +135,7 @@ function(input, output, session) {
       scale_y_continuous(labels = label_percent(), limits = c(0, 0.8)) +
       scale_fill_manual(values = c("NYC" = "#4E79A7", "LA" = "#E15759")) +
       labs(
-        title = paste("Host Structure in", snapshot_label(selected_month())),
+        title = paste("Host Structure in", snapshot_label(story_snapshot_month)),
         subtitle = "Los Angeles is more dominated by multi-listing hosts.",
         x = NULL,
         y = "Share of listings",
@@ -118,7 +151,7 @@ function(input, output, session) {
     )
 
     plot_data <- map_summary %>%
-      filter(city == input$overview_city, snapshot_month == selected_month())
+      filter(city == input$overview_city, snapshot_month == selected_overview_month())
 
     map_palette <- c("#d6e6f5", "#a8cce6", "#78b1d6", "#4d8fc0", "#2867a8", "#0b3d78")
 
@@ -163,7 +196,7 @@ function(input, output, session) {
       fill_scale +
       labs(
         title = paste(input$overview_city, "Neighborhood Map"),
-        subtitle = paste(metric_labels[[input$overview_metric]], "for", snapshot_label(selected_month())),
+        subtitle = paste(metric_labels[[input$overview_metric]], "for", snapshot_label(selected_overview_month())),
         fill = NULL
       ) +
       theme(
@@ -175,9 +208,9 @@ function(input, output, session) {
 
   output$overview_plot <- renderPlot({
     plot_data <- snapshot_overview_summary %>%
-      filter(city == input$overview_city, snapshot_month == selected_month()) %>%
+      filter(city == input$overview_city, snapshot_month == selected_overview_month()) %>%
       arrange(desc(.data[[input$overview_metric]])) %>%
-      slice_head(n = input$top_n) %>%
+      slice_head(n = 10) %>%
       mutate(neighbourhood = forcats::fct_reorder(neighbourhood, .data[[input$overview_metric]]))
 
     metric_labels <- c(
@@ -197,8 +230,8 @@ function(input, output, session) {
       coord_flip() +
       scale_y_continuous(labels = value_labels[[input$overview_metric]]) +
       labs(
-        title = paste("Top", input$top_n, "Neighborhoods"),
-        subtitle = paste(metric_labels[[input$overview_metric]], "for", snapshot_label(selected_month())),
+        title = "Top 10 Neighborhoods",
+        subtitle = paste(metric_labels[[input$overview_metric]], "for", snapshot_label(selected_overview_month())),
         x = NULL,
         y = NULL
       )
@@ -214,7 +247,7 @@ function(input, output, session) {
 
   output$price_city_plot <- renderPlot({
     plot_data <- pricing_city_summary %>%
-      filter(snapshot_month == selected_month())
+      filter(snapshot_month == selected_price_month())
 
     ggplot(plot_data, aes(x = city, y = median_price, fill = city)) +
       geom_col(width = 0.65) +
@@ -222,7 +255,7 @@ function(input, output, session) {
       scale_fill_manual(values = c("NYC" = "#4E79A7", "LA" = "#E15759")) +
       scale_y_continuous(labels = dollar_format()) +
       labs(
-        title = paste("Median Price by City in", snapshot_label(selected_month())),
+        title = paste("Median Price by City in", snapshot_label(selected_price_month())),
         subtitle = "Based on listings with usable price values",
         x = NULL,
         y = NULL,
@@ -232,7 +265,7 @@ function(input, output, session) {
 
   output$price_room_plot <- renderPlot({
     plot_data <- pricing_room_type_summary %>%
-      filter(snapshot_month == selected_month(), room_type %in% main_room_types) %>%
+      filter(snapshot_month == selected_price_month(), room_type %in% main_room_types) %>%
       mutate(room_type = forcats::fct_relevel(room_type, "Entire home/apt", "Private room"))
 
     ggplot(plot_data, aes(x = room_type, y = median_price, fill = city)) +
@@ -247,7 +280,7 @@ function(input, output, session) {
       scale_y_continuous(labels = dollar_format()) +
       labs(
         title = "Median Price by Main Room Type",
-        subtitle = paste(snapshot_label(selected_month()), "(hotel and shared rooms excluded)"),
+        subtitle = paste(snapshot_label(selected_price_month()), "(hotel and shared rooms excluded)"),
         x = NULL,
         y = NULL,
         fill = "City"
@@ -256,9 +289,9 @@ function(input, output, session) {
 
   output$price_neighbourhood_plot <- renderPlot({
     plot_data <- pricing_neighbourhood_summary %>%
-      filter(city == input$price_city, snapshot_month == selected_month()) %>%
+      filter(city == input$price_city, snapshot_month == selected_price_month()) %>%
       arrange(desc(median_price)) %>%
-      slice_head(n = input$price_top_n) %>%
+      slice_head(n = 10) %>%
       mutate(neighbourhood = forcats::fct_reorder(neighbourhood, median_price))
 
     ggplot(plot_data, aes(x = neighbourhood, y = median_price)) +
@@ -266,8 +299,8 @@ function(input, output, session) {
       coord_flip() +
       scale_y_continuous(labels = dollar_format()) +
       labs(
-        title = paste("Top", input$price_top_n, "Neighborhoods by Median Price in", input$price_city),
-        subtitle = snapshot_label(selected_month()),
+        title = paste("Top 10 Neighborhoods by Median Price in", input$price_city),
+        subtitle = snapshot_label(selected_price_month()),
         x = NULL,
         y = NULL
       )
@@ -279,7 +312,7 @@ function(input, output, session) {
 
   output$host_plot <- renderPlot({
     plot_data <- snapshot_host_summary %>%
-      filter(city == input$host_city, snapshot_month == selected_month())
+      filter(city == input$host_city, snapshot_month == selected_host_month())
 
     ggplot(plot_data, aes(x = host_type, y = share, fill = host_type)) +
       geom_col(width = 0.65) +
@@ -292,7 +325,7 @@ function(input, output, session) {
       scale_fill_manual(values = c("Single-listing host" = "#59A14F", "Multi-listing host" = "#F28E2B")) +
       labs(
         title = paste("Host Structure in", input$host_city),
-        subtitle = snapshot_label(selected_month()),
+        subtitle = snapshot_label(selected_host_month()),
         x = NULL,
         y = "Share of listings",
         fill = NULL
@@ -301,7 +334,7 @@ function(input, output, session) {
 
   output$host_availability_plot <- renderPlot({
     plot_data <- snapshot_host_summary %>%
-      filter(city == input$host_city, snapshot_month == selected_month())
+      filter(city == input$host_city, snapshot_month == selected_host_month())
 
     ggplot(plot_data, aes(x = host_type, y = median_availability, fill = host_type)) +
       geom_col(width = 0.65) +
@@ -313,7 +346,7 @@ function(input, output, session) {
       scale_fill_manual(values = c("Single-listing host" = "#59A14F", "Multi-listing host" = "#F28E2B")) +
       labs(
         title = paste("Days Available per Year by Host Type in", input$host_city),
-        subtitle = snapshot_label(selected_month()),
+        subtitle = snapshot_label(selected_host_month()),
         x = NULL,
         y = "Median days available per year",
         fill = NULL
@@ -330,4 +363,3 @@ function(input, output, session) {
     HTML(paste0("<b>Takeaway:</b> ", city_text))
   })
 }
-
