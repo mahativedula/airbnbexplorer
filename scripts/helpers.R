@@ -42,17 +42,15 @@ default_source_dirs <- list(
 
 city_file_map <- list(
   NYC = list(
-    listings = "NYC listings.csv",
-    calendar = "NYC calendar.csv",
-    reviews = "NYC reviews.csv",
-    neighbourhoods = "NYC neighbourhoods.geojson"
+    neighbourhoods = "NYC_neighbourhoods.geojson"
   ),
   LA = list(
-    listings = "LA listings.csv",
-    calendar = "LA calendar.csv",
-    reviews = "LA reviews.csv",
-    neighbourhoods = "LA neighbourhoods.geojson"
+    neighbourhoods = "LA_neighbourhoods.geojson"
   )
+)
+
+snapshot_subdir_map <- list(
+  listings = "Listings"
 )
 
 ensure_project_dirs <- function() {
@@ -93,6 +91,63 @@ check_source_files <- function(dataset_name) {
   }
 
   invisible(TRUE)
+}
+
+snapshot_dir_path <- function(city, dataset_name) {
+  city <- toupper(city)
+
+  if (!city %in% names(default_source_dirs)) {
+    stop("Unsupported city: ", city, call. = FALSE)
+  }
+
+  if (!dataset_name %in% names(snapshot_subdir_map)) {
+    stop("Unsupported snapshot dataset type: ", dataset_name, call. = FALSE)
+  }
+
+  file.path(default_source_dirs[[city]], paste(city, snapshot_subdir_map[[dataset_name]]))
+}
+
+list_snapshot_files <- function(city, dataset_name) {
+  dir_path <- snapshot_dir_path(city, dataset_name)
+
+  if (!dir.exists(dir_path)) {
+    stop("Missing snapshot directory: ", dir_path, call. = FALSE)
+  }
+
+  pattern <- paste0("_", dataset_name, "\\.csv$")
+  files <- list.files(dir_path, pattern = pattern, full.names = TRUE)
+
+  if (length(files) == 0) {
+    stop("No ", dataset_name, " snapshot files found in ", dir_path, call. = FALSE)
+  }
+
+  files
+}
+
+check_snapshot_files <- function(dataset_name) {
+  invisible(lapply(names(default_source_dirs), list_snapshot_files, dataset_name = dataset_name))
+}
+
+snapshot_month_from_path <- function(path, dataset_name) {
+  file_name <- basename(path)
+  pattern <- paste0("_(\\d{4})_(\\d{1,2})_", dataset_name, "\\.csv$")
+  match <- stringr::str_match(file_name, pattern)
+
+  if (is.na(match[1, 1])) {
+    stop("Could not parse snapshot month from file name: ", file_name, call. = FALSE)
+  }
+
+  as.Date(sprintf("%s-%02d-01", match[1, 2], as.integer(match[1, 3])))
+}
+
+column_or_na <- function(df, candidates, default = NA) {
+  for (candidate in candidates) {
+    if (candidate %in% names(df)) {
+      return(df[[candidate]])
+    }
+  }
+
+  rep(default, nrow(df))
 }
 
 parse_currency_number <- function(x) {

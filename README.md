@@ -5,7 +5,7 @@ Interactive Shiny app for comparing Airbnb market patterns in New York City and 
 ## Project Structure
 
 - `scripts/` preprocessing scripts that clean the raw files and build summary tables
-- `data-raw/` local raw input files for each city and shared-month pricing snapshots
+- `data-raw/` local raw input files for each city
 - `data/` generated cleaned data files used by the app
 - `ui.R` and `server.R` Shiny app files
 
@@ -19,49 +19,41 @@ install.packages(c("dplyr", "readr", "stringr", "lubridate", "sf", "shiny", "tid
 
 ## Raw Data Setup
 
-The current project uses two kinds of local data inputs:
+If `data/` already contains the generated `.rds` files, you can run the app without keeping the raw CSVs locally.
 
-1. Baseline files used for the original cleaning pipeline
-2. Detailed listing snapshots used for the shared-month pricing comparison
+If you want to rebuild the derived data, the current scripts use:
 
-Expected structure:
+- neighbourhood boundary files for each city
+- three listing snapshots for each city
+
+The old top-level raw CSV files are not used by the current preprocessing pipeline.
+
+Expected local structure:
 
 ```text
 data-raw/
   NYC/
-    NYC listings.csv
-    NYC calendar.csv
-    NYC reviews.csv
     NYC_neighbourhoods.geojson
     NYC Listings/
       NYC_2025_06_listings.csv
       NYC_2025_09_listings.csv
       NYC_2025_12_listings.csv
-    NYC Calender/
-      NYC_2025_06_calendar.csv
-      NYC_2025_09_calendar.csv
-      NYC_2025_12_calendar.csv
   LA/
-    LA listings.csv
-    LA calendar.csv
-    LA reviews.csv
     LA_neighbourhoods.geojson
     LA Listings/
       LA_2025_6_listings.csv
       LA_2025_09_listings.csv
       LA_2025_12_listings.csv
-    LA Calender/
-      LA_2025_06_calendar.csv
-      LA_2025_09_calendar.csv
-      LA_2025_12_calendar.csv
 ```
 
 Notes:
 
-- The app's pricing section currently uses the shared priced snapshots for June 2025 and September 2025.
-- December snapshot files can still be kept locally, but they are not used in the current pricing visuals because both cities had missing price values there.
+- `scripts/run_all.R` builds the main dashboard summaries from the June, September, and December listing snapshots.
+- Listing availability in the app is based on the `availability_365` field in the listing snapshots, not on calendar files.
+- The pricing section uses only the shared priced listing snapshots from June 2025 and September 2025.
+- December listing snapshots can still stay in place for the broader market summaries even though they are not used in the current pricing charts. This limitation comes from the Inside Airbnb source files: the city coverage is incomplete across months, and December does not provide usable price coverage for both cities.
 
-Optional: if the baseline raw files are stored somewhere else, set these environment variables before running the scripts:
+Optional: if the city folders are stored somewhere else, set these environment variables before running the scripts:
 
 ```r
 Sys.setenv(
@@ -72,19 +64,21 @@ Sys.setenv(
 
 ## Build Cleaned Data
 
-Run the original preprocessing pipeline if you need the baseline cleaned files:
+Run the main preprocessing pipeline for the three listing snapshot months:
 
 ```r
 source("scripts/run_all.R")
 ```
 
-Run the pricing snapshot pipeline for the shared-month comparisons:
+This writes the listing-based summary files used by the app into `data/`.
+
+Run the pricing snapshot pipeline for the shared-month price comparisons:
 
 ```r
 source("scripts/run_pricing_summaries.R")
 ```
 
-This generates local `.rds` files in `data/`.
+This writes the pricing summary files used by the app into `data/`.
 
 ## Run the App
 
@@ -93,3 +87,4 @@ After preprocessing finishes, launch the Shiny app from the project root:
 ```r
 shiny::runApp()
 ```
+

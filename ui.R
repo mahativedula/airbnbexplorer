@@ -45,9 +45,9 @@ fluidPage(
       ),
       plotOutput("story_room_type_plot", height = "420px"),
       br(),
-      h4("2. Availability tells a second story"),
+      h4("2. Listing availability points the same way"),
       p(
-        "The gap does not stop at room type. Across the year, Los Angeles listings tend to stay available more consistently, while New York listings are less continuously available.",
+        "The gap does not stop at room type. Across the June, September, and December listing snapshots, Los Angeles listings tend to be available for more days of the year than New York listings.",
         "That pattern fits a market that looks more year-round and commercial in LA, and more mixed in NYC."
       ),
       plotOutput("story_availability_plot", height = "420px"),
@@ -62,7 +62,7 @@ fluidPage(
       h4("What we want readers to take away"),
       p(
         "The main takeaway is that NYC and LA are not just different in size or price. They seem to represent two different Airbnb market models.",
-        "Los Angeles looks more commercialized and more centered on whole-home, year-round supply. New York looks more mixed, with a stronger private-room presence and more signs of less continuously available hosting."
+        "Los Angeles looks more commercialized and more centered on whole-home, year-round supply. New York looks more mixed, with a stronger private-room presence and more signs of listings that are not available year-round."
       )
     ),
 
@@ -82,7 +82,7 @@ fluidPage(
             choices = c(
               "Listing count" = "listing_count",
               "Multi-listing host share" = "multi_share",
-              "Median availability" = "median_availability"
+              "Median days available per year" = "median_availability"
             ),
             selected = "listing_count"
           ),
@@ -160,3 +160,5 @@ fluidPage(
     )
   )
 )
+
+

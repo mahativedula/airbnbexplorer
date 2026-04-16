@@ -23,7 +23,7 @@ neighbourhoods_clean <- dplyr::bind_rows(
 
 neighbourhood_summary <- listings_clean |>
   dplyr::filter(!is.na(neighbourhood)) |>
-  dplyr::group_by(city, neighbourhood_group, neighbourhood) |>
+  dplyr::group_by(city, snapshot_month, neighbourhood_group, neighbourhood) |>
   dplyr::summarise(
     listing_count = dplyr::n(),
     median_price = median(price, na.rm = TRUE),
@@ -39,7 +39,7 @@ host_summary <- listings_clean |>
   dplyr::mutate(
     host_type = dplyr::if_else(is_multi_listing_host, "Multi-listing host", "Single-listing host")
   ) |>
-  dplyr::group_by(city, host_type, room_type) |>
+  dplyr::group_by(city, snapshot_month, host_type, room_type) |>
   dplyr::summarise(
     listing_count = dplyr::n(),
     median_price = median(price, na.rm = TRUE),

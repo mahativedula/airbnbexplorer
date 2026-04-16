@@ -6,7 +6,7 @@ library(sf)
 theme_set(theme_classic(base_size = 12))
 
 shared_months <- readRDS(file.path("data", "pricing_shared_months.rds"))
-city_month_summary <- readRDS(file.path("data", "city_month_summary.rds"))
+snapshot_city_summary <- readRDS(file.path("data", "snapshot_city_summary.rds"))
 neighbourhood_shapes <- readRDS(file.path("data", "neighbourhoods_clean.rds"))
 snapshot_overview_summary <- readRDS(file.path("data", "snapshot_overview_summary.rds"))
 snapshot_room_type_summary <- readRDS(file.path("data", "snapshot_room_type_summary.rds"))
@@ -72,16 +72,17 @@ function(input, output, session) {
   })
 
   output$story_availability_plot <- renderPlot({
-    ggplot(city_month_summary, aes(x = month_start, y = mean_availability_rate, color = city)) +
+    ggplot(snapshot_city_summary, aes(x = month_start, y = mean_availability_365, color = city)) +
       geom_line(linewidth = 1.1) +
-      geom_point(size = 2.2) +
+      geom_point(size = 2.4) +
       scale_color_manual(values = c("NYC" = "#4E79A7", "LA" = "#E15759")) +
-      scale_y_continuous(labels = label_percent(accuracy = 1)) +
+      scale_y_continuous(labels = label_number(accuracy = 1)) +
+      scale_x_date(date_labels = "%b %Y", date_breaks = "3 months") +
       labs(
-        title = "Availability Over Time",
-        subtitle = "Los Angeles listings tend to stay available more consistently than New York listings.",
+        title = "Days Available per Year Across Snapshot Months",
+        subtitle = "Across the three listing snapshots, LA listings are available for more days per year on average.",
         x = NULL,
-        y = "Mean availability rate",
+        y = "Average days available per year",
         color = "City"
       )
   })
@@ -113,7 +114,7 @@ function(input, output, session) {
     metric_labels <- c(
       listing_count = "Listing count",
       multi_share = "Multi-listing host share",
-      median_availability = "Median availability"
+      median_availability = "Median days available per year"
     )
 
     plot_data <- map_summary %>%
@@ -149,7 +150,6 @@ function(input, output, session) {
       do.call(scale_fill_stepsn, scale_args)
     }
 
-    # Quantile-style bins keep low-end neighborhoods from collapsing into the same pale fill.
     fill_scale <- if (input$overview_metric == "multi_share") {
       build_map_scale(plot_data$multi_share, label_percent(accuracy = 1))
     } else if (input$overview_metric == "listing_count") {
@@ -183,7 +183,7 @@ function(input, output, session) {
     metric_labels <- c(
       listing_count = "Listing count",
       multi_share = "Multi-listing host share",
-      median_availability = "Median availability"
+      median_availability = "Median days available per year"
     )
 
     value_labels <- c(
@@ -312,26 +312,22 @@ function(input, output, session) {
       ) +
       scale_fill_manual(values = c("Single-listing host" = "#59A14F", "Multi-listing host" = "#F28E2B")) +
       labs(
-        title = paste("Availability by Host Type in", input$host_city),
+        title = paste("Days Available per Year by Host Type in", input$host_city),
         subtitle = snapshot_label(selected_month()),
         x = NULL,
-        y = "Median availability_365",
+        y = "Median days available per year",
         fill = NULL
       )
   })
 
   output$host_note <- renderUI({
     city_text <- if (input$host_city == "NYC") {
-      "NYC still has a strong multi-listing host presence, but it is less dominant than in LA and single-listing hosts look much less available overall."
+      "NYC still has a strong multi-listing host presence, but it is less dominant than in LA and single-listing hosts tend to be available for fewer days overall."
     } else {
-      "LA looks more commercialized, with more multi-listing hosts and higher availability tied to that inventory."
+      "LA looks more commercialized, with more multi-listing hosts and listings that stay available for more days overall."
     }
 
     HTML(paste0("<b>Takeaway:</b> ", city_text))
   })
 }
-
-
-
-
 
