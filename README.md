@@ -6,7 +6,7 @@ Interactive Shiny app for comparing Airbnb market patterns in New York City and 
 
 - `scripts/` preprocessing scripts that clean the raw files and build summary tables
 - `data-raw/` local raw input files for each city
-- `data/` generated cleaned data files used by the app
+- `data/` app-ready processed files used by the dashboard
 - `ui.R` and `server.R` Shiny app files
 
 ## Required Packages
@@ -17,9 +17,21 @@ Install these packages in R before running the project:
 install.packages(c("dplyr", "readr", "stringr", "lubridate", "sf", "shiny", "tidyverse", "scales"))
 ```
 
-## Raw Data Setup
+## Run the App
 
-If `data/` already contains the generated `.rds` files, you can run the app without keeping the raw CSVs locally.
+The repository is set up so the app can run directly after cloning, as long as the tracked files in `data/` are present.
+
+From the project root, run:
+
+```r
+shiny::runApp()
+```
+
+## Rebuild the Processed Data
+
+You only need these steps if the tracked `data/` files are missing or if you want to regenerate them from raw source files.
+
+### Raw Data Setup
 
 If you want to rebuild the derived data, the current scripts use:
 
@@ -62,7 +74,7 @@ Sys.setenv(
 )
 ```
 
-## Build Cleaned Data
+### Build Commands
 
 Run the main preprocessing pipeline for the three listing snapshot months:
 
@@ -79,12 +91,3 @@ source("scripts/run_pricing_summaries.R")
 ```
 
 This writes the pricing summary files used by the app into `data/`.
-
-## Run the App
-
-After preprocessing finishes, launch the Shiny app from the project root:
-
-```r
-shiny::runApp()
-```
-
