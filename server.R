@@ -110,7 +110,10 @@ function(input, output, session) {
       geom_point(size = 2.4) +
       scale_color_manual(values = c("NYC" = "#4E79A7", "LA" = "#E15759")) +
       scale_y_continuous(labels = label_number(accuracy = 1)) +
-      scale_x_date(date_labels = "%b %Y", date_breaks = "3 months") +
+      scale_x_date(
+        breaks = unique(snapshot_city_summary$month_start),
+        labels = scales::date_format("%b\n%Y")  
+      ) +
       labs(
         title = "Days Available per Year Across Snapshot Months",
         subtitle = "Across the three listing snapshots, LA listings are available for more days per year on average.",
