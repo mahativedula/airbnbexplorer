@@ -308,9 +308,9 @@ function(input, output, session) {
         y = NULL
       )
   })
-
+  
   output$price_note <- renderUI({
-    HTML("<b>Note:</b> Pricing is shown only for the shared months with usable listing prices in both cities. The room-type price chart focuses on entire homes and private rooms because hotel and shared rooms are too small and too extreme to be useful in the main comparison.")
+    HTML("<b>Takeaway:</b> Prices are similar at the city level, but differences emerge more clearly within room types and neighborhoods. LA's higher availability and commercial structure may help support slightly higher prices in some segments.")
   })
 
   output$host_plot <- renderPlot({
