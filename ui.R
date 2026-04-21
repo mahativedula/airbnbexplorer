@@ -1,4 +1,5 @@
 library(bslib)
+library(leaflet)
 
 ui <- navbarPage(
   title = "Airbnb Explorer: NYC vs LA",
@@ -43,8 +44,8 @@ ui <- navbarPage(
              ),
              mainPanel(width = 9,
                        fluidRow(
-                         column(6, plotOutput("market_map_nyc",   height = "420px")),
-                         column(6, plotOutput("market_map_la",    height = "420px"))
+                         column(6, leafletOutput("market_map_nyc", height = "420px")),
+                         column(6, leafletOutput("market_map_la",  height = "420px"))
                        ),
                        br(),
                        fluidRow(

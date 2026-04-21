@@ -2,6 +2,9 @@ library(shiny)
 library(tidyverse)
 library(scales)
 library(sf)
+library(leaflet)
+library(htmltools)
+
 
 theme_set(theme_classic(base_size = 12))
 
@@ -41,6 +44,16 @@ snapshot_label <- function(x) {
 
 main_room_types <- c("Entire home/apt", "Private room")
 
+# ---- Helper for leaflet hover labels ----
+build_label <- function(df_row) {
+  htmltools::HTML(paste0(
+    "<strong>", df_row$neighbourhood, "</strong><br/>",
+    "Listings: ", scales::comma(as.numeric(df_row$listing_count)), "<br/>",
+    "Multi-listing hosts: ", scales::percent(as.numeric(df_row$multi_share), accuracy = 0.1), "<br/>",
+    "Median availability: ", round(as.numeric(df_row$median_availability)), " days/year"
+  ))
+}
+
 function(input, output, session) {
   
   # ── MARKET OVERVIEW ───────────────────────────────────────────────────────
@@ -73,6 +86,11 @@ function(input, output, session) {
     }
   })
   
+  observeEvent(input$market_map_nyc_shape_click, {
+    selected_neighbourhood(input$market_map_nyc_shape_click$id)
+  }) # new
+  
+  
   observeEvent(input$la_map_click, {
     click <- input$la_map_click
     if (!is.null(click)) {
@@ -87,6 +105,10 @@ function(input, output, session) {
       }
     }
   })
+  
+  observeEvent(input$market_map_la_shape_click, {
+    selected_neighbourhood(input$market_map_la_shape_click$id)
+  }) # n32
   
   observeEvent(input$nyc_bar_click, {
     plot_data <- snapshot_overview_summary %>%
@@ -145,60 +167,94 @@ function(input, output, session) {
     do.call(scale_fill_stepsn, scale_args)
   }
   
-  output$market_map_nyc <- renderPlot({
-    metric_labels <- c(
-      listing_count       = "Listing count",
-      multi_share         = "Multi-listing host share",
-      median_availability = "Median days available per year"
-    )
+  output$market_map_nyc <- renderLeaflet({
+    
     plot_data <- map_summary %>%
-      filter(city == "NYC", snapshot_month == selected_overview_month())
-    fill_scale <- if (input$overview_metric == "multi_share") {
-      build_map_scale(plot_data$multi_share, label_percent(accuracy = 1))
-    } else if (input$overview_metric == "listing_count") {
-      build_map_scale(plot_data$listing_count, label_comma(), transform = "log10")
-    } else {
-      build_map_scale(plot_data$median_availability, label_number())
-    }
-    ggplot(plot_data) +
-      geom_sf(aes(fill = .data[[input$overview_metric]]),
-              color = "white", linewidth = 0.15) +
-      fill_scale +
-      labs(
-        title    = paste("NYC —", metric_labels[[input$overview_metric]]),
-        subtitle = snapshot_label(selected_overview_month()),
-        fill = NULL
-      ) +
-      theme(axis.text = element_blank(), axis.ticks = element_blank(),
-            panel.grid = element_blank())
+      dplyr::filter(
+        city == "NYC",
+        snapshot_month == selected_overview_month()
+      )
+    
+    pal_listing <- colorBin(
+      palette = "Blues",
+      domain  = plot_data$listing_count,
+      bins    = 6,
+      na.color = "#f0f0f0"
+    )
+    
+    leaflet(plot_data) %>%
+      addProviderTiles(providers$CartoDB.Positron) %>%
+      
+      addPolygons(
+        fillColor = ~pal_listing(listing_count),
+        color = "white",
+        weight = 1,
+        fillOpacity = 0.8,
+        
+        highlightOptions = highlightOptions(
+          weight = 2,
+          color = "#333",
+          fillOpacity = 0.9,
+          bringToFront = TRUE
+        ),
+        
+        label = lapply(seq_len(nrow(plot_data)), function(i) {
+          build_label(plot_data[i, ])
+        }),
+        layerId = ~neighbourhood
+      ) %>%
+      
+      addLegend(
+        pal = pal_listing,
+        values = ~listing_count,
+        title = "Listing count",
+        position = "bottomright"
+      )
   })
   
-  output$market_map_la <- renderPlot({
-    metric_labels <- c(
-      listing_count       = "Listing count",
-      multi_share         = "Multi-listing host share",
-      median_availability = "Median days available per year"
-    )
+  output$market_map_la <- renderLeaflet({
+    
     plot_data <- map_summary %>%
-      filter(city == "LA", snapshot_month == selected_overview_month())
-    fill_scale <- if (input$overview_metric == "multi_share") {
-      build_map_scale(plot_data$multi_share, label_percent(accuracy = 1))
-    } else if (input$overview_metric == "listing_count") {
-      build_map_scale(plot_data$listing_count, label_comma(), transform = "log10")
-    } else {
-      build_map_scale(plot_data$median_availability, label_number())
-    }
-    ggplot(plot_data) +
-      geom_sf(aes(fill = .data[[input$overview_metric]]),
-              color = "white", linewidth = 0.15) +
-      fill_scale +
-      labs(
-        title    = paste("LA —", metric_labels[[input$overview_metric]]),
-        subtitle = snapshot_label(selected_overview_month()),
-        fill = NULL
-      ) +
-      theme(axis.text = element_blank(), axis.ticks = element_blank(),
-            panel.grid = element_blank())
+      dplyr::filter(
+        city == "LA",
+        snapshot_month == selected_overview_month()
+      )
+    
+    pal_listing <- colorBin(
+      palette = "Reds",
+      domain  = plot_data$listing_count,
+      bins    = 6,
+      na.color = "#f0f0f0"
+    )
+    
+    leaflet(plot_data) %>%
+      addProviderTiles(providers$CartoDB.Positron) %>%
+      
+      addPolygons(
+        fillColor = ~pal_listing(listing_count),
+        color = "white",
+        weight = 1,
+        fillOpacity = 0.8,
+        
+        highlightOptions = highlightOptions(
+          weight = 2,
+          color = "#333",
+          fillOpacity = 0.9,
+          bringToFront = TRUE
+        ),
+        
+        label = lapply(seq_len(nrow(plot_data)), function(i) {
+          build_label(plot_data[i, ])
+        }),
+        layerId = ~neighbourhood
+      ) %>%
+      
+      addLegend(
+        pal = pal_listing,
+        values = ~listing_count,
+        title = "Listing count",
+        position = "bottomright"
+      )
   })
   
   output$overview_plot_nyc <- renderPlot({
