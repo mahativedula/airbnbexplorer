@@ -4,6 +4,64 @@ ui <- navbarPage(
   title = "Airbnb Explorer: NYC vs LA",
 
   tabPanel(
+    "Data Story",
+    fluidRow(
+      column(
+        10, offset = 1,
+        br(),
+        div(
+          style = "font-size: 15px; line-height: 1.7; color: #333;",
+          h3("Two cities, two Airbnb market models"),
+          p("New York City and Los Angeles sit on the same platform, serve many of the same travelers, and rank among Airbnb's largest U.S. markets. They ought to look similar. Instead, side by side, they begin to look like different businesses."),
+          p("The question behind this story is simple: are these cities just larger and smaller versions of the same Airbnb market, or does the platform take on a different shape in each place? The clearest answer in the data is that Los Angeles looks more like a whole-home, commercially supplied market, while New York remains tighter, more mixed, and more dependent on private-room listings."),
+          p(
+            style = "font-size: 13px; color: #666;",
+            "Room mix, pricing, and host structure are shown for September 2025, the latest shared priced snapshot. Availability compares all three listing snapshots: June, September, and December 2025."
+          )
+        ),
+        br(),
+        fluidRow(
+          column(7, plotOutput("story_room_type_plot", height = "360px")),
+          column(
+            5,
+            h4("The split begins with what is being listed"),
+            p("The first clue is the room mix. Los Angeles is dominated by entire-home listings, while New York keeps a far larger private-room segment. That is more than a catalog difference. It suggests that the two cities are not just pricing differently; they are drawing on different kinds of hosts and serving different kinds of stays.")
+          )
+        ),
+        br(),
+        fluidRow(
+          column(
+            5,
+            h4("Availability makes that difference harder to ignore"),
+            p("Availability sharpens the divide. Across all three listing snapshots, Los Angeles listings remain available for more days of the year. That is the pattern of a market that behaves more like standing inventory. New York looks more constrained: denser, less open, and more shaped by part-time or room-based hosting.")
+          ),
+          column(7, plotOutput("story_availability_plot", height = "360px"))
+        ),
+        br(),
+        fluidRow(
+          column(7, plotOutput("story_price_plot", height = "360px")),
+          column(
+            5,
+            h4("Price tells a story inside each city, not just between them"),
+            p("The pricing story is not just New York versus Los Angeles. It is also neighborhood versus neighborhood, and listing type versus listing type. Entire homes command the clearest premium, but location does almost as much work. In both cities, a relatively small slice of the market pulls far above the median.")
+          )
+        ),
+        br(),
+        fluidRow(
+          column(
+            5,
+            h4("Who controls the listings matters too"),
+            p("Then there is the question of control. In both cities, a relatively small group of multi-listing hosts controls a large share of supply. But combined with the room mix and availability patterns, that concentration looks especially consequential in Los Angeles, where the market already leans toward whole-home, high-availability listings."),
+            p(HTML("<b>What the reader should walk away knowing:</b> these are not just two Airbnb markets with different prices. They reflect different market models. Los Angeles looks more commercialized and whole-home oriented. New York remains denser, more mixed, and more private-room heavy."))
+          ),
+          column(7, plotOutput("story_host_plot", height = "360px"))
+        ),
+        br()
+      )
+    )
+  ),
+
+  tabPanel(
     "Market Overview",
     fluidRow(
       column(

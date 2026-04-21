@@ -27,6 +27,7 @@ pricing_months <- sort(shared_months)
 
 listing_month_choices <- setNames(as.character(listing_months), format(listing_months, "%b %Y"))
 pricing_month_choices <- setNames(as.character(pricing_months), format(pricing_months, "%b %Y"))
+story_priced_month <- max(pricing_months)
 
 map_summary <- neighbourhood_shapes %>%
   left_join(
@@ -37,6 +38,8 @@ map_summary <- neighbourhood_shapes %>%
 snapshot_label <- function(x) {
   format(as.Date(x), "%b %Y")
 }
+
+story_priced_label <- snapshot_label(story_priced_month)
 
 main_room_types <- c("Entire home/apt", "Private room")
 map_palette <- c("#d6e6f5", "#a8cce6", "#78b1d6", "#4d8fc0", "#2867a8", "#0b3d78")
@@ -443,6 +446,105 @@ server <- function(input, output, session) {
 
   price_city_filter <- reactive({
     if (input$price_city == "all") c("NYC", "LA") else input$price_city
+  })
+
+  output$story_room_type_plot <- renderPlot({
+    plot_data <- snapshot_room_type_summary %>%
+      filter(snapshot_month == story_priced_month) %>%
+      mutate(room_type_group = if_else(room_type %in% main_room_types, room_type, "Other")) %>%
+      group_by(city, room_type_group) %>%
+      summarise(share = sum(share), .groups = "drop") %>%
+      mutate(room_type_group = forcats::fct_relevel(room_type_group, "Entire home/apt", "Private room", "Other"))
+
+    ggplot(plot_data, aes(x = room_type_group, y = share, fill = city)) +
+      geom_col(position = "dodge") +
+      geom_text(
+        aes(label = percent(share, accuracy = 0.1)),
+        position = position_dodge(width = 0.9),
+        vjust = -0.35,
+        size = 3.8
+      ) +
+      scale_y_continuous(labels = label_percent(), limits = c(0, 0.85)) +
+      scale_fill_manual(values = c("NYC" = "#4E79A7", "LA" = "#E15759")) +
+      labs(
+        title = "Room Type Composition",
+        subtitle = story_priced_label,
+        x = NULL,
+        y = "Share of listings",
+        fill = "City"
+      )
+  })
+
+  output$story_availability_plot <- renderPlot({
+    plot_data <- snapshot_city_summary %>%
+      arrange(snapshot_month)
+
+    ggplot(plot_data, aes(x = snapshot_month, y = median_availability_365, color = city, group = city)) +
+      geom_line(linewidth = 1.1) +
+      geom_point(size = 2.6) +
+      geom_text(
+        aes(label = round(median_availability_365, 0)),
+        vjust = -0.5,
+        size = 3.6,
+        show.legend = FALSE
+      ) +
+      scale_color_manual(values = c("NYC" = "#4E79A7", "LA" = "#E15759")) +
+      scale_y_continuous(labels = label_number()) +
+      scale_x_date(date_labels = "%b\n%Y", breaks = sort(unique(plot_data$snapshot_month))) +
+      labs(
+        title = "Days Available per Year Across Snapshot Months",
+        subtitle = "Median listing availability across the June, September, and December snapshots",
+        x = NULL,
+        y = "Median days available per year",
+        color = "City"
+      )
+  })
+
+  output$story_price_plot <- renderPlot({
+    plot_data <- pricing_room_type_summary %>%
+      filter(snapshot_month == story_priced_month, room_type %in% main_room_types) %>%
+      mutate(room_type = forcats::fct_relevel(room_type, "Entire home/apt", "Private room"))
+
+    ggplot(plot_data, aes(x = room_type, y = median_price, fill = city)) +
+      geom_col(position = "dodge") +
+      geom_text(
+        aes(label = dollar(median_price)),
+        position = position_dodge(width = 0.9),
+        vjust = -0.35,
+        size = 3.6
+      ) +
+      scale_fill_manual(values = c("NYC" = "#4E79A7", "LA" = "#E15759")) +
+      scale_y_continuous(labels = dollar_format()) +
+      labs(
+        title = "Median Price by Room Type",
+        subtitle = paste(story_priced_label, "- hotel and shared rooms excluded"),
+        x = NULL,
+        y = "Median nightly price",
+        fill = "City"
+      )
+  })
+
+  output$story_host_plot <- renderPlot({
+    plot_data <- snapshot_host_summary %>%
+      filter(snapshot_month == story_priced_month)
+
+    ggplot(plot_data, aes(x = host_type, y = share, fill = city)) +
+      geom_col(position = "dodge") +
+      geom_text(
+        aes(label = percent(share, accuracy = 0.1)),
+        position = position_dodge(width = 0.9),
+        vjust = -0.35,
+        size = 3.8
+      ) +
+      scale_y_continuous(labels = label_percent(), limits = c(0, 0.85)) +
+      scale_fill_manual(values = c("NYC" = "#4E79A7", "LA" = "#E15759")) +
+      labs(
+        title = "Share of Listings by Host Type",
+        subtitle = story_priced_label,
+        x = NULL,
+        y = "Share of listings",
+        fill = "City"
+      )
   })
 
   output$price_city_plot <- renderPlot({
