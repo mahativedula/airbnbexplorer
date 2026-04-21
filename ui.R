@@ -72,7 +72,7 @@ ui <- navbarPage(
                             "City-level and room type charts show both cities. 
          Neighborhood and listing-level charts filter by the city selected below."),
                           selectInput("price_city", "City (neighborhood & listing charts)",
-                                      choices = c("NYC", "LA"))
+                                      choices = c("Both cities" = "all", "NYC", "LA"))
              ),
              mainPanel(width = 9,
                        
