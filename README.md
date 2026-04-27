@@ -19,7 +19,7 @@ install.packages(c("dplyr", "readr", "stringr", "lubridate", "sf", "shiny", "tid
 
 ## Run the App
 
-The repository is set up so the app can run directly after cloning, as long as the tracked files in `data/` are present.
+The repository is set up so the app can run directly after cloning, as long as the tracked `.rds` files in `data/` are present.
 
 From the project root in R:
 
@@ -63,6 +63,7 @@ Notes:
 - `scripts/run_all.R` builds the main dashboard summaries from the June, September, and December listing snapshots.
 - Listing availability in the app is based on the `availability_365` field in the listing snapshots, not on calendar files.
 - The pricing section uses only the shared priced listing snapshots from June 2025 and September 2025.
+- Some Pricing and Host Activity charts also depend on the detailed pricing outputs created by `scripts/run_pricing_summaries.R`.
 - The current Host Activity tab is also limited to June 2025 and September 2025 because some host charts rely on the same priced listing files.
 - December listing snapshots can still stay in place for the broader market summaries even though they are not used in the current pricing charts. This limitation comes from the Inside Airbnb source files: the city coverage is incomplete across months, and December does not provide usable price coverage for both cities.
 
@@ -92,3 +93,6 @@ source("scripts/run_pricing_summaries.R")
 ```
 
 This writes the pricing summary files used by the app into `data/`.
+
+
+

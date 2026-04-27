@@ -9,9 +9,12 @@ data/*.geojson
 data/*.rds
 !data/neighbourhoods_clean.rds
 !data/pricing_city_summary.rds
+!data/pricing_host_summary.rds
+!data/pricing_listings_clean.rds
 !data/pricing_neighbourhood_summary.rds
 !data/pricing_room_type_summary.rds
 !data/pricing_shared_months.rds
+!data/host_summary.rds
 !data/snapshot_city_summary.rds
 !data/snapshot_host_summary.rds
 !data/snapshot_overview_summary.rds
@@ -19,3 +22,4 @@ data/*.rds
 
 data-raw/**/*.csv
 data-raw/**/*.geojson
+
