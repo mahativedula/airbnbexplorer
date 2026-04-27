@@ -2,12 +2,13 @@ library(shiny)
 library(tidyverse)
 library(scales)
 library(sf)
+sf::sf_use_s2(FALSE)
 
 theme_set(theme_classic(base_size = 12))
 
 shared_months                 <- readRDS(file.path("data", "pricing_shared_months.rds"))
 snapshot_city_summary         <- readRDS(file.path("data", "snapshot_city_summary.rds"))
-neighbourhood_shapes          <- readRDS(file.path("data", "neighbourhoods_clean.rds"))
+neighbourhood_shapes          <- readRDS(file.path("data", "neighbourhoods_clean.rds")) %>% sf::st_make_valid()
 snapshot_overview_summary     <- readRDS(file.path("data", "snapshot_overview_summary.rds"))
 snapshot_room_type_summary    <- readRDS(file.path("data", "snapshot_room_type_summary.rds"))
 snapshot_host_summary         <- readRDS(file.path("data", "snapshot_host_summary.rds"))
@@ -32,7 +33,8 @@ story_priced_month <- max(pricing_months)
 map_summary <- neighbourhood_shapes %>%
   left_join(
     snapshot_overview_summary,
-    by = c("city", "neighbourhood_group", "neighbourhood")
+    by = c("city", "neighbourhood_group", "neighbourhood"),
+    relationship = "many-to-many"
   )
 
 snapshot_label <- function(x) {
