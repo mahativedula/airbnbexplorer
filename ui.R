@@ -25,7 +25,7 @@ ui <- navbarPage(
           column(
             5,
             h4("Diferent cities, different listing types"),
-            p("The first clue is the distribution of room types in each city's Airbnb market. Los Angeles is dominated by entire-home listings, while New York keeps a far larger private-room segment. That is more than a catalog difference. It suggests that the two cities are not just pricing differently; they are drawing on different kinds of hosts and serving different kinds of stays. This pattern could be influenced by the architectural setup of both cities. NYC tends to have smaller homes/aoartments, whereas larger standalone homes are more common in LA.")
+            p("The first clue is the distribution of room types in each city's Airbnb market. Los Angeles is dominated by entire-home listings, while New York keeps a far larger private-room segment. That is more than a catalog difference. It suggests that the two cities are not just pricing differently; they are drawing on different kinds of hosts and serving different kinds of stays. This pattern could be influenced by the architectural setup of both cities. NYC tends to have smaller homes/apartments, whereas larger standalone homes are more common in LA.")
           )
         ),
         br(),
